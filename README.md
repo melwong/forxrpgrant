@@ -3,7 +3,7 @@ This repo contains the following:
 * A simple demo site interface to demonstrate how someone who holds our credit line could make a remittance via our payment gateway - under `remittance` folder. This code is using MetaMask wallet because we were told my XRP grant team that we can submit code based on MetaMask as we don't have sufficient time to build a demo on XRP wallet. We only thought of submitting to your grant three days ago. 
 * Point of Sale (PoS) Android app to allow registered merchant to use this app to accept remittance requests - under `android_pos` folder. This is useful in the future for people to easily walk to our merchant to send money home abroad. This is the common use case among migrant workers and we want to continue to faciliate this.
 
-*NOTE: To learn more about our XRP development capability, please view - https://github.com/melwong/ngxrp*
+*NOTE: To learn more about our XRP development capability, please view our other XRP project -> https://github.com/melwong/ngxrp*
 
 ### Point of Sale (POS) Android App
 This demo supports the MetaMask wallet mobile app. Here's a demo video - https://youtu.be/Ksj-Vgp1zRk?t=106
