@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/PaymentFragment">
+
+    <fragment
+        android:id="@+id/PaymentFragment"
+        android:name="com.merchant.cryptcard2.PaymentFragment"
+        android:label="@string/payment_fragment_label"
+        tools:layout="@layout/fragment_payment">
+
+        <action
+            android:id="@+id/action_PaymentFragment_to_QRFragment"
+            app:destination="@id/QRFragment" />
+        <action
+            android:id="@+id/action_PaymentFragment_to_ConfigurationFragment"
+            app:destination="@id/ConfigurationFragment" />
+
+    </fragment>
+
+    <fragment
+        android:id="@+id/QRFragment"
+        android:name="com.merchant.cryptcard2.QRFragment"
+        android:label="@string/qr_fragment_label"
+        tools:layout="@layout/fragment_configuration">
+
+        <action
+            android:id="@+id/action_QRFragment_to_PaymentFragment"
+            app:destination="@id/PaymentFragment" />
+
+    </fragment>
+
+    <fragment
+        android:id="@+id/ConfigurationFragment"
+        android:name="com.merchant.cryptcard2.ConfigurationFragment"
+        android:label="@string/configuration_fragment_label"
+        tools:layout="@layout/fragment_configuration">
+
+        <action
+            android:id="@+id/action_ConfigFragment_to_PaymentFragment"
+            app:destination="@id/PaymentFragment" />
+    </fragment>
+
+</navigation>

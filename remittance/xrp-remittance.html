@@ -1,0 +1,379 @@
+<html>
+    <head>
+        <title>XRP Remittance</title>
+
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css">
+
+        <style>
+            .spinner {
+                min-width: 200px;
+                min-height: 200px;
+                margin: 0 auto;
+                background-image: url( './images/spinner-lg.gif' );
+                background-position: center;
+                background-repeat: no-repeat;
+            }
+
+            .modal.hidden {
+                display: none;
+            }
+        </style>
+
+        <script>
+
+            var globalAccount;
+            var globalSignature;
+
+            window.onload = function () {
+                // web3 instance for signature recovery
+                const web3 = new Web3(window.ethereum);
+
+                if (typeof window.ethereum !== 'undefined') {
+                    console.log('MetaMask is installed!');
+                } else {
+                    console.log('MetaMask is not installed!');
+                }
+
+                const signButton = document.querySelector('.signMessageButton');
+
+                //Get the main account from MetaMask immediately when this page loads.
+                getAccount();
+
+                // $('#remittanceForm').on('click', function (e) {
+                //     if (e.isDefaultPrevented()) {
+                //         // handle the invalid form...
+                //     } else {
+                //         //Display the remittance pop-up
+                //         $('#remitModal').modal('show'); 
+
+                //         signMessage();
+                //     }
+                // })
+
+                signButton.addEventListener('click', () => {
+                    //Display the remittance pop-up
+                    $('#remitModal').modal('show'); 
+
+                    signMessage();
+                });
+
+                async function signMessage() {
+
+                    message = "Remittance to " + encodeURIComponent( document.getElementById('recipient-field').value );
+
+                    document.getElementById("description-field").value = message;
+
+                    try {
+                        const from = globalAccount;
+                        console.log('From : ' + from);
+
+                        const msg = message;
+
+                        console.log('Msg : ' + msg);
+                        const sign = await ethereum.request({
+                            method: 'personal_sign',
+                            params: [msg, from, 'Random text'],
+                        });
+                        console.log('Signature : ' + sign);
+                        globalSignature = sign;
+
+                        document.getElementById('signature-field').value = sign;
+
+                        uuid = createUUID();
+                        console.log('UUID : ' + uuid);
+                        document.getElementById('uuid-field').value = uuid;
+
+                        let response = await fetch('Enter CC payment gateway URL here', {
+                            method: 'POST',
+                            redirect: 'manual',
+                            body: new FormData(remittanceForm)
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                console.log(data);
+                                if (data.status) {
+                                    var x = document.getElementById("spinner-label");
+                                    x.style.display = "none";   //Remove spinner
+
+                                    document.getElementById('remitModalLabel').innerHTML = data.status;
+                                    document.getElementById('payment-results').innerHTML = data.message;
+                                    document.getElementById('payment-results').innerHTML += "<p>Transaction ID: " + data.transaction_id + "</p>"; 
+                                } else {
+                                    console.log(data.message);
+                                }
+                            })
+                            .catch(err => {
+                                console.log(err);
+                            });
+
+                    } catch (err) {
+                        console.error(err);
+                    }
+                }
+
+                async function getAccount() {
+                    const accounts = await ethereum.request({
+                        method: 'eth_requestAccounts'
+                    });
+                    const account = accounts[0];
+                    globalAccount = accounts[0];
+
+                    console.log("Wallet address: " + globalAccount);
+                    document.getElementById('wallet-field').value = account;
+
+                }
+
+                function createUUID() {
+                    var dt = new Date().getTime();
+                    var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                        var r = (dt + Math.random() * 16) % 16 | 0;
+                        dt = Math.floor(dt / 16);
+                        return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                    });
+                    return uuid;
+                }
+
+            }
+        </script>
+
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.5.3/ethers.umd.min.js"></script>
+        <script type="text/javascript">
+
+            async function sendPayment(contractAddress, toAddress, paymentAmount) {
+
+                let minABI = [
+                    // transfer token
+                    {
+                        "constant": false,
+                        "inputs": [
+                            {
+                                "name": "_to",
+                                "type": "address"
+                            },
+                            {
+                                "name": "_value",
+                                "type": "uint256"
+                            }
+                        ],
+                        "name": "transfer",
+                        "outputs": [
+                            {
+                                "name": "",
+                                "type": "bool"
+                            }
+                        ],
+                        "type": "function"
+                    }
+                ];
+
+                //To bring out the Metamask fox
+                try {
+                    const accounts = await window.ethereum.request({
+                        method: "eth_requestAccounts",
+                    });
+
+                } catch (error) {
+                    alert("<?php esc_html_e( 'Please connect your wallet', 'quanto-child' ); ?>");
+
+                    //Redirect to main page if there's no wallet
+                    document.location.href = "<?php echo site_url(); ?>";
+                }
+
+                // A Web3Provider wraps a standard Web3 provider, which is
+                // what MetaMask injects as window.ethereum into each page
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+
+                // The MetaMask plugin also allows signing transactions to
+                // send ether and pay to change state within the blockchain.
+                // For this, you need the account signer...
+                const signer = provider.getSigner();
+
+                const walletAddress = await signer.getAddress();
+
+                console.log("Payer Wallet: " + walletAddress);
+                console.log("Payment Amount: " + paymentAmount);
+                console.log("Chain ID: ", window.ethereum.networkVersion);
+
+                try {
+                    const contract = new ethers.Contract(contractAddress, minABI, provider);
+
+                    // The Contract is currently connected to the Provider,
+                    // which is read-only. You need to connect to a Signer, so
+                    // that you can pay to send state-changing transactions.
+                    const contractWithSigner = contract.connect(signer);
+
+                    // Convert payment amount to 18 decimal places
+                    const paymentAmountBigNum = ethers.utils.parseUnits(String(paymentAmount), 18);
+
+                    // Send token to payment wallet
+                    const tx = await contractWithSigner.transfer(toAddress, paymentAmountBigNum);
+
+                    // The transaction that was sent to the network
+                    console.log(`Transaction hash: ${tx.hash}`);
+
+                    // Tx must wait until it is mined
+                    const receipt = await tx.wait();
+
+                    const blockNumber = receipt.blockNumber;
+                    const gasUsed = receipt.gasUsed.toString();
+
+                    console.log(`Transaction confirmed in block ${blockNumber}`);
+                    console.log(`Gas used: ${gasUsed}`);
+
+                    if (blockNumber) {
+
+                        // if modal is not shown/visible then
+                        if (!jQuery('#myModal').is(':visible')) {
+                            jQuery("#paymentModal").modal("show");
+                        }
+
+                        //Display message after tokens are transferred
+                        const div = document.getElementById('payment-results');
+
+                        // Change the content
+                        div.innerHTML = '<span><?php esc_html_e( 'Payment Status', 'quanto - child' ); ?>: '
+                            + '<?php esc_html_e( 'Successful', 'quanto - child' ); ?></span>'
+                                + '<div class="col-px2"></div>'
+                                + `<span><?php esc_html_e( 'Transaction Hash', 'quanto-child' ); ?>: ${tx.hash}</span>`
+                                + '<div class="col-px2"></div>'
+                                + `<span><?php esc_html_e( 'Gas Used', 'quanto-child' ); ?>: ${gasUsed}</span>`;
+
+                    } else {
+                        //Display message if transfer failed
+                        const div = document.getElementById('payment-results');
+
+                        // Change the content
+                        div.innerHTML = '<span><?php esc_html_e( 'Payment Status', 'quanto - child' ); ?>: '
+                            + '<?php esc_html_e( 'Failed', 'quanto - child' ); ?></span>'
+                                + '<div class="col-px2"></div>'
+                                + '<span><?php esc_html_e( 'Error.Please check the console log.', 'quanto - child' ); ?></span>';
+                    }
+
+                } catch (error) {
+                    console.log(error);
+
+                    // if modal is not shown/visible then
+                    if (!jQuery('#myModal').is(':visible')) {
+                        jQuery("#paymentModal").modal("show");
+                    }
+
+                    //Display message if transfer failed
+                    const errorDiv = document.getElementById('payment-results');
+                    errorDiv.innerHTML = '<span><?php esc_html_e( 'Payment Status', 'quanto - child' ); ?>: '
+                        + '<?php esc_html_e( 'Failed', 'quanto - child' ); ?></span>'
+                            + '<div class="col-px2"></div>'
+                            + '<span><?php esc_html_e( 'Error.Please check the console log.', 'quanto - child' ); ?></span>';
+                }
+
+                //Reset the payment pop-up. In case it appeared before
+                jQuery('#paymentModal').on('hidden.bs.modal', function () {
+
+                    const resetDiv = document.getElementById('payment-results');
+                    resetDiv.innerHTML = '<div class="spinner" role="status"></div>'
+                        + '<div class="text-center"><?php esc_html_e( 'Please wait...', 'quanto - child' ); ?>'
+                + '</div>';
+            });
+        
+                }
+
+        </script>
+
+
+    </head>
+
+    <body>
+        <div class="pt-5"></div>
+        <div class="container">
+            <form class="form-horizontal card p-3 bg-light" id="remittanceForm" action="signMessage();" data-toggle="validator" role="form">
+                <fieldset>
+
+                    <!-- Form Name -->
+                    <legend>XRP Remittance</legend>
+
+                    <!-- Text input-->
+                    <div class="form-group">
+                        <label class="col-md-4 control-label" for="textinput">Destination Wallet</label>
+                        <div class="col-md-5">
+                            <input id="recipient-field" name="recipient" type="text" placeholder="Enter recipient's wallet address"
+                                class="form-control input-md" required>
+                        </div>
+                    </div>
+
+                    <div class="pt-3"></div>
+
+                    <!-- Text input-->
+                    <div class="form-group">
+                        <label class="col-md-4 control-label" for="textinput">Amount (XRP)</label>
+                        <div class="col-md-5">
+                            <input id="amount" name="amount" type="text" placeholder="Amount of tokens to send"
+                                class="form-control input-md" required="required">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="hidden" name="wallet_address" class="form-control" id="wallet-field"
+                            placeholder="Connect to MetaMask to auto fill wallet address here">
+                        <div class="p-1">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="hidden" name="wallet_signature" class="form-control" id="signature-field"></input>
+                    </div>
+                    <div class="form-group">
+                        <input hidden name="message_hex" class="form-control" id="msg-hex-field"></input>
+                    </div>
+                    <div class="form-group">
+                        <input type="hidden" name="uuid" class="form-control" id="uuid-field">
+                    </div>
+                    <div class="form-group">
+                        <input type="hidden" name="merchant_id" class="form-control" id="merchant-id-field" value="52">
+                    </div>
+                    <div class="form-group">
+                        <input type="hidden" name="merchant_key" class="form-control" id="merchant-key-field" value="UOO7mLIyDf7jjEUOvFx2TmvR">
+                    </div>
+                    <div class="form-group">
+                        <input type="hidden" name="currency" class="form-control" id="currency-field" value="ETH">
+                    </div>
+                    <div class="form-group">
+                        <input type="hidden" name="description" class="form-control" id="description-field" value="ETH">
+                    </div>
+
+                    <!-- Button -->
+                    <div class="form-group">
+                        <label class="col-md-4 control-label" for="singlebutton"></label>
+                        <div class="col-md-4">
+                            <button type="button" class="btn btn-primary signMessageButton">Send XRP</button>
+                        </div>
+                    </div>
+
+                </fieldset>
+            </form>
+        </div>
+
+        <!--Modal UI to display results-->
+        <div id="remitModal" class="modal fade" data-backdrop="false" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="remitModalLabel">
+                            Processing...
+                        </h5>
+                    </div>
+                    <div id="payment-results" class="modal-body modal-text">
+                        <div class="spinner" id="spinner-label" role="status">
+                        </div>
+                        <div class="text-center">
+                            Please wait...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.min.js"></script>
+        <script src="https://code.jquery.com/jquery-3.6.1.min.js"></script>
+
+    </body>
+</html>
